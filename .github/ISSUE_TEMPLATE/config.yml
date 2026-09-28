@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions, feature requests, and general discussion
+    url: https://github.com/orgs/phpbbmodders/discussions
+    about: For anything that isn't a bug report, please use Discussions instead.
+  - name: phpBB Modders community forum
+    url: https://www.phpbbmodders.com/community/
+    about: General phpBB and extension support.

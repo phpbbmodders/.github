@@ -1,0 +1,81 @@
+name: Bug report
+description: Report something that isn't working in this extension.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Questions and feature requests belong in [Discussions](https://github.com/orgs/phpbbmodders/discussions). Security problems must not be posted here; see the security policy.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What went wrong, and what did you expect to happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to …
+        2. Click …
+        3. See …
+    validations:
+      required: true
+  - type: input
+    id: extension-version
+    attributes:
+      label: Extension version
+      description: Shown in ACP > Customise > Manage extensions > Details.
+    validations:
+      required: true
+  - type: input
+    id: phpbb-version
+    attributes:
+      label: phpBB version
+      placeholder: e.g. 3.3.19
+    validations:
+      required: true
+  - type: input
+    id: php-version
+    attributes:
+      label: PHP version
+      placeholder: e.g. 8.2
+    validations:
+      required: true
+  - type: dropdown
+    id: database
+    attributes:
+      label: Database
+      options:
+        - MySQL / MariaDB
+        - PostgreSQL
+        - SQLite
+        - MSSQL
+        - Other / not sure
+    validations:
+      required: true
+  - type: input
+    id: style
+    attributes:
+      label: Style
+      description: The board style in use when the problem happens.
+      placeholder: e.g. prosilver
+  - type: textarea
+    id: errors
+    attributes:
+      label: Error messages or logs
+      description: Any error shown on the page, in ACP > Maintenance > Error log, or in the PHP error log. Remove passwords and personal data first.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I'm using the latest release of this extension.
+          required: true
+        - label: I searched the existing issues and this hasn't been reported.
+          required: true
+        - label: I purged the board cache and the problem still happens.
+          required: true
