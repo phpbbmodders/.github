@@ -1,0 +1,113 @@
+# Reusable workflow: run EPV (Extension Pre Validator) on a phpBB extension
+# and fail when it reports a Fatal or Error finding that the extension has
+# not explicitly allowed.
+#
+# EPV itself exits 0 unless it finds a Fatal problem, so its Error findings
+# never failed CI. It is also pointed at the folder that contains
+# vendor/name (phpBB/ext/), not at the extension folder, which avoids its
+# false "Packaging structure" error.
+#
+# Allowed findings: an optional file in the extension, .github/epv-allowed.txt,
+# one finding per line as EPV prints it, without "on line N" and with paths
+# relative to the extension (for example "Error: Using unserialize in /ext.php"),
+# each preceded by a "#" comment giving the reason.
+#
+# Use from an extension's workflow:
+#   jobs:
+#     epv:
+#       uses: phpbbmodders/.github/.github/workflows/epv.yml@v1
+#       with:
+#         EXTNAME: vendor/name
+on:
+  workflow_call:
+    inputs:
+      EXTNAME:
+        description: The extension's composer name, vendor/name
+        required: true
+        type: string
+      PHPBB_BRANCHES:
+        description: JSON list of phpBB branches to check against
+        required: false
+        default: '["3.3.x"]'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  epv:
+    name: EPV - phpBB ${{ matrix.phpbb }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        phpbb: ${{ fromJSON(inputs.PHPBB_BRANCHES) }}
+    steps:
+      - name: Checkout phpBB
+        uses: actions/checkout@v4
+        with:
+          repository: phpbb/phpbb
+          ref: ${{ matrix.phpbb }}
+          path: phpBB3
+          persist-credentials: false
+
+      - name: Checkout extension
+        uses: actions/checkout@v4
+        with:
+          path: phpBB3/phpBB/ext/${{ inputs.EXTNAME }}
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          # phpBB 3.3 checks run on 7.4, the minimum for phpbbmodders extensions;
+          # phpBB 4.0 (master) needs 8.2
+          php-version: ${{ matrix.phpbb == 'master' && '8.2' || '7.4' }}
+          coverage: none
+
+      - name: Install EPV
+        working-directory: ./phpBB3/phpBB
+        env:
+          # EPV's dev-master cannot install next to phpBB 4.0's Symfony 7
+          EPV_BRANCH: ${{ matrix.phpbb == 'master' && 'dev-epv-phpbb4' || 'dev-master' }}
+        run: |
+          # As phpbb-extensions/test-framework does: Composer 2.9 otherwise
+          # refuses some of the packages phpBB 3.3 has locked
+          php ../composer.phar config audit.block-insecure false
+          php ../composer.phar require "phpbb/epv:$EPV_BRANCH" --dev --no-interaction --ignore-platform-reqs
+
+      - name: Run EPV
+        working-directory: ./phpBB3
+        env:
+          EXTNAME: ${{ inputs.EXTNAME }}
+        run: |
+          set -o pipefail
+          php phpBB/vendor/bin/EPV.php run --dir="phpBB/ext/" | sed 's/\x1b\[[0-9;]*m//g' | tee epv.txt
+
+      - name: Fail on findings that are not allowed
+        working-directory: ./phpBB3
+        env:
+          EXTNAME: ${{ inputs.EXTNAME }}
+        run: |
+          allowed="phpBB/ext/$EXTNAME/.github/epv-allowed.txt"
+          # Fatal and Error lines, without line numbers or the vendor/name prefix
+          grep -E '^(Fatal|Error):' epv.txt \
+            | sed -E "s# on line [0-9]+##; s#/$EXTNAME/#/#g" \
+            | sort -u > findings.txt || true
+          if [ -f "$allowed" ]; then
+            grep -vE '^\s*(#|$)' "$allowed" | sort -u > allowed.txt
+          else
+            : > allowed.txt
+          fi
+          comm -23 findings.txt allowed.txt > blocking.txt
+          comm -13 findings.txt allowed.txt > stale.txt
+          if [ -s stale.txt ]; then
+            echo "::warning::Allowed EPV findings that no longer occur; remove them from .github/epv-allowed.txt:"
+            cat stale.txt
+          fi
+          if [ -s blocking.txt ]; then
+            echo "::error::EPV findings that are not in .github/epv-allowed.txt:"
+            cat blocking.txt
+            exit 1
+          fi
+          echo "No EPV Fatal or Error findings outside .github/epv-allowed.txt."
