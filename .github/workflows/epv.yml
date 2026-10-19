@@ -37,7 +37,9 @@ permissions:
 jobs:
   epv:
     name: EPV - phpBB ${{ matrix.phpbb }}
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moves to Ubuntu 26.04 from 10/19/2026, where PHP 7.4
+    # may not be installable, and ubuntu-22.04 is deprecated
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
